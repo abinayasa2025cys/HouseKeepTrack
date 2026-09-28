@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HouseKeepTrack - Hotel Housekeeping Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-brand">
+        <span class="header-icon">🏨</span>
+        <div>
+            <h1>HouseKeepTrack</h1>
+            <p class="header-sub">Hotel Housekeeping Task Assignment by Room Status</p>
+        </div>
+    </div>
+    <div class="header-links">
+        <a href="/swagger-ui/index.html" target="_blank">📖 Swagger API Docs</a>
+    </div>
+</header>
+
+<!-- Notification Bar -->
+<div id="notification" class="notification hidden"></div>
+
+<!-- Dashboard Stats -->
+<section class="section">
+    <h2 class="section-title">📊 Dashboard</h2>
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-label">Total Rooms</div><div class="stat-value" id="statTotal">—</div></div>
+        <div class="stat-card dirty"><div class="stat-label">🔴 Dirty</div><div class="stat-value" id="statDirty">—</div></div>
+        <div class="stat-card cleaning"><div class="stat-label">🟡 Cleaning</div><div class="stat-value" id="statCleaning">—</div></div>
+        <div class="stat-card cleaned"><div class="stat-label">🟠 Cleaned</div><div class="stat-value" id="statCleaned">—</div></div>
+        <div class="stat-card inspected"><div class="stat-label">🔵 Inspected</div><div class="stat-value" id="statInspected">—</div></div>
+        <div class="stat-card ready"><div class="stat-label">🟢 Ready</div><div class="stat-value" id="statReady">—</div></div>
+        <div class="stat-card avail"><div class="stat-label">👤 Available HK</div><div class="stat-value" id="statAvail">—</div></div>
+        <div class="stat-card busy"><div class="stat-label">🔧 Busy HK</div><div class="stat-value" id="statBusy">—</div></div>
+        <div class="stat-card turnaround"><div class="stat-label">⏱️ Avg Turnaround</div><div class="stat-value" id="statTurnaround">—</div></div>
+    </div>
+</section>
+
+<!-- Tabs Navigation -->
+<div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('rooms')">🛏️ Rooms</button>
+        <button class="tab-btn" onclick="showTab('housekeepers')">👷 Housekeepers</button>
+        <button class="tab-btn" onclick="showTab('tasks')">🧹 Cleaning Tasks</button>
+        <button class="tab-btn" onclick="showTab('inspections')">🔍 Inspections</button>
+    </div>
+</div>
+
+<!-- ==================== ROOMS TAB ==================== -->
+<section id="tab-rooms" class="tab-content active">
+    <div class="two-col">
+        <!-- Add Room Form -->
+        <div class="card">
+            <h3 class="card-title">➕ Add New Room</h3>
+            <div class="form-group">
+                <label>Room Number <span class="req">*</span></label>
+                <input type="text" id="roomNumber" placeholder="e.g. 101, 202A">
+            </div>
+            <div class="form-group">
+                <label>Room Type <span class="req">*</span></label>
+                <input type="text" id="roomType" placeholder="e.g. Standard, Deluxe, Suite">
+            </div>
+            <div class="form-group">
+                <label>Initial Status</label>
+                <select id="roomStatus">
+                    <option value="READY">READY</option>
+                    <option value="DIRTY">DIRTY (auto-assign task)</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="createRoom()">Add Room</button>
+        </div>
+
+        <!-- Update Room Status -->
+        <div class="card">
+            <h3 class="card-title">🔄 Update Room Status</h3>
+            <div class="form-group">
+                <label>Room ID <span class="req">*</span></label>
+                <input type="number" id="updateRoomId" placeholder="Enter Room ID">
+            </div>
+            <div class="form-group">
+                <label>New Status <span class="req">*</span></label>
+                <select id="updateRoomStatus">
+                    <option value="DIRTY">DIRTY (triggers auto task)</option>
+                    <option value="CLEANING">CLEANING</option>
+                    <option value="CLEANED">CLEANED</option>
+                    <option value="INSPECTED">INSPECTED</option>
+                    <option value="READY">READY</option>
+                </select>
+            </div>
+            <button class="btn btn-warning" onclick="updateRoomStatus()">Update Status</button>
+            <hr style="margin: 14px 0; border-color: #e2e8f0;">
+            <h3 class="card-title" style="margin-bottom:10px;">🏠 Allocate Room to Guest</h3>
+            <div class="form-group">
+                <label>Room ID <span class="req">*</span></label>
+                <input type="number" id="allocateRoomId" placeholder="Enter Room ID (must be READY)">
+            </div>
+            <button class="btn btn-success" onclick="allocateRoom()">Allocate Room</button>
+        </div>
+    </div>
+
+    <!-- Rooms Table -->
+    <div class="card">
+        <div class="card-header-row">
+            <h3 class="card-title">🛏️ All Rooms</h3>
+            <button class="btn btn-sm btn-outline" onclick="loadRooms()">🔄 Refresh</button>
+        </div>
+        <div class="table-wrapper">
+            <table id="roomsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Room No.</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="roomsBody">
+                    <tr><td colspan="5" class="empty">Loading rooms…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== HOUSEKEEPERS TAB ==================== -->
+<section id="tab-housekeepers" class="tab-content">
+    <div class="two-col">
+        <!-- Add Housekeeper Form -->
+        <div class="card">
+            <h3 class="card-title">➕ Add New Housekeeper</h3>
+            <div class="form-group">
+                <label>Name <span class="req">*</span></label>
+                <input type="text" id="hkName" placeholder="Full name">
+            </div>
+            <div class="form-group">
+                <label>Phone <span class="req">*</span></label>
+                <input type="text" id="hkPhone" placeholder="e.g. 9876543210">
+            </div>
+            <div class="form-group">
+                <label>Active</label>
+                <select id="hkActive">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="createHousekeeper()">Add Housekeeper</button>
+        </div>
+
+        <!-- Edit Housekeeper -->
+        <div class="card">
+            <h3 class="card-title">✏️ Edit Housekeeper</h3>
+            <div class="form-group">
+                <label>Housekeeper ID <span class="req">*</span></label>
+                <input type="number" id="editHkId" placeholder="Enter Housekeeper ID">
+            </div>
+            <div class="form-group">
+                <label>Name <span class="req">*</span></label>
+                <input type="text" id="editHkName" placeholder="Updated name">
+            </div>
+            <div class="form-group">
+                <label>Phone <span class="req">*</span></label>
+                <input type="text" id="editHkPhone" placeholder="Updated phone">
+            </div>
+            <div class="form-group">
+                <label>Active</label>
+                <select id="editHkActive">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <button class="btn btn-warning" onclick="updateHousekeeper()">Update Housekeeper</button>
+        </div>
+    </div>
+
+    <!-- Housekeepers Workload Table -->
+    <div class="card">
+        <div class="card-header-row">
+            <h3 class="card-title">👷 Housekeepers & Workload</h3>
+            <button class="btn btn-sm btn-outline" onclick="loadHousekeepers()">🔄 Refresh</button>
+        </div>
+        <div class="table-wrapper">
+            <table id="hkTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Active</th>
+                        <th>Assigned</th>
+                        <th>In Progress</th>
+                        <th>Completed</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="hkBody">
+                    <tr><td colspan="9" class="empty">Loading housekeepers…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== TASKS TAB ==================== -->
+<section id="tab-tasks" class="tab-content">
+    <div class="card">
+        <div class="card-header-row">
+            <h3 class="card-title">🧹 All Cleaning Tasks</h3>
+            <button class="btn btn-sm btn-outline" onclick="loadTasks()">🔄 Refresh</button>
+        </div>
+        <div class="table-wrapper">
+            <table id="tasksTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Room</th>
+                        <th>Housekeeper</th>
+                        <th>Status</th>
+                        <th>Assigned At</th>
+                        <th>Started At</th>
+                        <th>Completed At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tasksBody">
+                    <tr><td colspan="8" class="empty">Loading tasks…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== INSPECTIONS TAB ==================== -->
+<section id="tab-inspections" class="tab-content">
+    <div class="two-col">
+        <!-- Submit Inspection -->
+        <div class="card">
+            <h3 class="card-title">🔍 Submit Room Inspection</h3>
+            <div class="info-box">
+                ⚠️ Room must be in <strong>CLEANED</strong> status before inspection.
+            </div>
+            <div class="form-group">
+                <label>Room ID <span class="req">*</span></label>
+                <input type="number" id="inspectRoomId" placeholder="Enter Room ID">
+            </div>
+            <div class="form-group">
+                <label>Supervisor Name <span class="req">*</span></label>
+                <input type="text" id="supervisorName" placeholder="Supervisor's full name">
+            </div>
+            <div class="form-group">
+                <label>Result <span class="req">*</span></label>
+                <select id="inspectionResult" onchange="toggleRemarksRequired()">
+                    <option value="PASSED">✅ PASSED</option>
+                    <option value="FAILED">❌ FAILED</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label id="remarksLabel">Remarks <span id="remarksReq" class="req" style="display:none;">*</span></label>
+                <textarea id="inspectionRemarks" rows="3" placeholder="Inspection remarks (required if FAILED)"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="submitInspection()">Submit Inspection</button>
+        </div>
+
+        <!-- View Inspection History -->
+        <div class="card">
+            <h3 class="card-title">📋 Inspection History</h3>
+            <div class="form-group">
+                <label>Room ID</label>
+                <input type="number" id="historyRoomId" placeholder="Enter Room ID to view history">
+            </div>
+            <button class="btn btn-outline" onclick="loadInspectionHistory()">Load History</button>
+            <div id="inspectionHistoryContainer" style="margin-top:14px;">
+                <p class="empty">Enter a Room ID and click Load History.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script src="script.js"></script>
+</body>
+</html>
